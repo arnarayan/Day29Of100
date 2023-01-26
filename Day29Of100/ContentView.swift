@@ -11,12 +11,15 @@ struct ContentView: View {
     
     @State var fileContents = ""
     @State var usedWords: [String] = [String]()
+    @State var words: [String] = [String]()
     @State var rootWord: String = ""
     @State var currentlySpelling: String = ""
+    @State var numberOfGames = 0
     
     @State private var errorTitle = ""
     @State private var errorMessage = ""
     @State private var showingError = false
+    @State private var showSheet = false
     
     var body: some View {
         NavigationView {
@@ -56,6 +59,21 @@ struct ContentView: View {
             }
             .padding()
             .navigationTitle($rootWord)
+            .navigationBarItems(leading: Button(action: {
+                showSheet = true
+            }, label: {
+                Image(systemName: "dollarsign.circle").font(.title)
+            }),
+            trailing: Button(action: {
+                rootWord = words.randomElement() ?? "silkworm"
+                usedWords.removeAll()
+                numberOfGames += 1
+            }, label: {
+                Image(systemName: "arrow.clockwise.circle").font(.title)
+            }))
+            .sheet(isPresented: $showSheet) {
+                SummaryView(currentWord: rootWord, numberOfTries: usedWords.count, overallWordsTried: numberOfGames)
+            }
         }
         
 
@@ -84,6 +102,10 @@ struct ContentView: View {
         return isValid
     }
     
+    func isLessThanThree(word: String) -> Bool {
+        return word.count < 3
+    }
+    
     func isSpellingCorrect(word: String) -> Bool {
         let checker = UITextChecker()
         //Get a range amount
@@ -97,15 +119,18 @@ struct ContentView: View {
     }
  
     func getFile() {
-        if let fileURL = Bundle.main.url(forResource: "start", withExtension: "txt") {
-            if let testData = try? String(contentsOf: fileURL) {
-                fileContents =  testData
-                let words = fileContents.components(separatedBy: "\n")
-                rootWord = words.randomElement() ?? "silkworm"
-                return
+        if (words.count==0) {
+            if let fileURL = Bundle.main.url(forResource: "start", withExtension: "txt") {
+                if let testData = try? String(contentsOf: fileURL) {
+                    fileContents =  testData
+                    words.append(contentsOf: fileContents.components(separatedBy: "\n"))
+                    rootWord = words.randomElement() ?? "silkworm"
+                    numberOfGames += 1
+                    return
+                }
             }
+            fatalError("Could not load start.txt from the bundle.")
         }
-        fatalError("Could not load start.txt from the bundle.")
     }
     
     func addNewWord(word:String) {
@@ -121,11 +146,16 @@ struct ContentView: View {
                 setErrorMessage(title: "Word not possible", message: "You can't spell that word from '\(rootWord)'!")
                 return
             }
+            if isLessThanThree(word: trimmed) {
+                setErrorMessage(title: "Word length not valid", message: "You must use more letters!")
+            }
 
             if isSpellingCorrect(word: trimmed) {
                 setErrorMessage(title: "Word not recognized", message: "You can't just make them up, you know!")
                 return
             }
+            
+
             withAnimation {
                 usedWords.insert(trimmed, at: 0)
                 currentlySpelling = ""
